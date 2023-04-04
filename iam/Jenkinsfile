@@ -77,6 +77,9 @@ pipeline {
         container('gcloud') {
           withCredentials([[$class: 'FileBinding', credentialsId: 'GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS']]) {
             sh '''
+            echo $pwd
+            cd /gcp/iam
+            ls
             terraform plan
             '''
           }
