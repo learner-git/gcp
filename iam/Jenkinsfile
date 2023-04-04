@@ -59,7 +59,6 @@ pipeline {
             git clone https://github.com/learner-git/gcp.git
             cd /gcp/iam
             echo $GOOGLE_APPLICATION_CREDENTIALS > /gcp_credentials.json
-            sleep 300
             terraform init
             '''
           }
