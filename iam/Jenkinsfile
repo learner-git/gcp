@@ -1,0 +1,88 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml """
+            apiVersion: v1
+            kind: Pod
+            metadata:
+              labels:
+                jenkins: "agent"
+                jenkins/label: "kubeagent"
+              name: gcloud
+            spec:
+              containers:
+              - name: gcloud
+                image: gcr.io/cloud-builders/gcloud:latest
+                command:
+                - sleep
+                args:
+                - infinity
+              volumeMounts:
+                - mountPath: /.config/
+                  name: gcloud-config
+                - mountPath: "/iam"
+                  name: "terraform-workspace"
+              volumes:
+              - name: gcloud-config
+                emptyDir: {}
+              - name: "terraform-workspace"
+                hostPath:
+                  path: "/hostwsl/iam"
+                  type: Directory
+        """.stripIndent()
+        }
+    }
+    environment {
+    PROJECT_ID = 'dgcp-sandbox-lalit-sharma'
+  }
+
+  stages {
+
+    stage('GCP') {
+      when {
+        not {
+          changeRequest()
+        }
+      }
+      steps {
+        container('gcloud') {
+          withCredentials([[$class: 'FileBinding', credentialsId: 'GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS']]) {
+            sh '''
+            apt-get update
+            apt-get install -y gnupg software-properties-common curl pipenv
+            curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - 
+            apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" 
+            apt-get update
+            apt-get install terraform
+            terraform --version
+            cd /
+            git clone https://github.com/learner-git/gcp.git
+            cd /gcp/iam
+            echo $GOOGLE_APPLICATION_CREDENTIALS > /gcp_credentials.json
+            sleep 300
+            terraform init
+            '''
+          }
+        }
+      } 
+    }
+    
+    stage('plan') {
+      when {
+        not {
+          changeRequest()
+        }
+      }
+      steps {
+        container('gcloud') {
+          withCredentials([[$class: 'FileBinding', credentialsId: 'GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS']]) {
+            sh '''
+            terraform plan
+            '''
+          }
+        }    
+      }
+    }
+  }
+
+}
